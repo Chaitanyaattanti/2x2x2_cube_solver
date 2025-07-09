@@ -1,64 +1,61 @@
+Certainly! Here’s an **updated README** that matches the code you provided. The description now reflects your code’s actual features, move set, input/output format, and approach (bidirectional BFS, direct state encoding, etc.), and removes references to permutation/orientation encoding which your code does not use.
+
 # 2x2x2 Rubik's Cube Solver in C++
 
-This project implements a solver for the 2x2x2 Rubik’s Cube (Pocket Cube) using Breadth-First Search (BFS). The cube's state is efficiently encoded using permutation and orientation to reduce the search space and solve efficiently.
+This project implements a solver for the 2x2x2 Rubik’s Cube (Pocket Cube) using **Bidirectional Breadth-First Search (BFS)**. The cube's state is represented as a flat array of 24 stickers, and all standard face moves are supported.
 
 ## Features
 
 - Solves any valid 2x2x2 cube configuration
-- Finds the shortest sequence of moves using BFS
-- Compact cube state representation using permutation and orientation
-- Supports 9 moves: R, R', R2, U, U', U2, F, F', F2
-- Automatically generates the target state by flipping all face colors
+- Finds the shortest sequence of moves using bidirectional BFS
+- Supports all 18 standard face moves: F, F', F2, B, B', B2, R, R', R2, L, L', L2, U, U', U2, D, D', D2
+- Validates input for correct color counts and format
+- Efficient state encoding for fast lookup
 
 ## How It Works
 
-- Each corner of the cube is represented by its position and orientation
-- The cube state is encoded using Lehmer code and base-3 encoding
-- The goal state is computed by inverting face colors
-- BFS explores the shortest path from start to goal
-- Once the solution is found, the move sequence is printed
+- The cube is represented as a 24-character string (each sticker's color)
+- Each move permutes and rotates stickers according to standard 2x2x2 cube notation
+- Bidirectional BFS searches from the scrambled state and the solved state simultaneously for efficiency
+- Once a solution is found, the move sequence is printed
 
 ## Compilation and Execution
 
-1. Compile the program:
-
+1. **Compile the program:**
    ```
    g++ -std=c++17 solver.cpp -o cube_solver
    ```
 
-2. Run the program:
-
+2. **Run the program:**
    ```
    ./cube_solver
    ```
 
 ## Input Format
 
-- Enter 6 faces of the cube, each with 4 stickers (2 rows of 2)
-- Input 24 lowercase letters representing cube face colors:
-  - `r` (red), `o` (orange), `w` (white), `y` (yellow), `b` (blue), `g` (green)
+- Enter 24 characters representing the cube stickers in the following order:
+  - Top (U): 4 stickers
+  - Right (R): 4 stickers
+  - Left (L): 4 stickers
+  - Bottom (D): 4 stickers
+  - Front (F): 4 stickers
+  - Back (B): 4 stickers
 
-- Example input:
+- Use uppercase or lowercase for colors (the program converts to uppercase):
+  - W (white), R (red), O (orange), Y (yellow), G (green), B (blue)
 
+- Example input (as a single line, no spaces):
   ```
-  o o o o
-  b b b b
-  y y y y
-  g g g g
-  r r r r
-  w w w w
+  oooobbbbyyyyggggrrrrwwww
   ```
 
 ## Output
 
-- Shows the initial and goal cube configuration
-- Prints the move sequence that solves the cube
+- Prints the solution as a sequence of moves, or "Unsolvable" if the cube is not valid or cannot be solved.
 
   Example:
-
   ```
-  Moves:
-  R U2 F R'
+  Solution: R U2 F R'
   ```
 
 ## Files
@@ -68,7 +65,10 @@ This project implements a solver for the 2x2x2 Rubik’s Cube (Pocket Cube) usin
 
 ## Concepts Used
 
-- Breadth-First Search (BFS)
-- Permutation encoding using Lehmer code
-- Orientation encoding with base-3 system
-- Efficient state representation and transition
+- Bidirectional Breadth-First Search (BFS)
+- Efficient state encoding for lookup and deduplication
+- Standard 2x2x2 cube move definitions
+- Input validation and color counting
+
+**Note:**  
+This solver does not use permutation/orientation encoding (Lehmer code or base-3) but instead encodes the full sticker state for simplicity and clarity.
