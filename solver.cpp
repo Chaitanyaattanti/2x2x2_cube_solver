@@ -1,297 +1,179 @@
-#include <cstdio>
-#include <vector>
-#include <string>
-#include <algorithm>
-#include <queue>
-#include <cmath>
 #include <iostream>
+#include <vector>
+#include <queue>
+#include <unordered_map>
+#include <string>
+#include <array>
+#include <algorithm>
+#include <map>
+#include <cstdint>
+
 using namespace std;
 
-// Represents a cube's corner configuration (position + orientation)
-struct State {
-    int val[7];
+// All possible moves for the 2x2x2 cube
+const vector<string> MOVES = {
+    "F", "F'", "F2", "B", "B'", "B2", "R", "R'", "R2",
+    "L", "L'", "L2", "U", "U'", "U2", "D", "D'", "D2"
 };
 
-// Encoded form: permutation index + orientation value
-struct Encoded {
-    int perm, orient;
-};
-
-// Each face has 4 stickers; total 6 faces
 struct Cube {
-    char face[6][4];
-};
+    array<char, 24> state;
 
-// Holds all valid color combinations (21 triplets)
-struct Triplets {
-    string t[21];
-};
+    Cube() = default;
 
-// Factorial function
-int fact(int n) {
-    int f = 1;
-    for (int i = 2; i <= n; ++i) f *= i;
-    return f;
-}
-
-// Build 21 valid corner triplets from front stickers of cube
-Triplets buildTriplets(const Cube &c) {
-    Triplets tripletSet;
-    char colors[6] = {c.face[0][0], c.face[1][0], c.face[2][0], c.face[3][0], c.face[4][0], c.face[5][0]};
-
-    int combos[21][3] = {
-        {0,3,4},{4,0,3},{3,4,0},
-        {0,4,1},{1,0,4},{4,1,0},
-        {0,5,3},{3,0,5},{5,3,0},
-        {0,1,5},{5,0,1},{1,5,0},
-        {2,4,3},{3,2,4},{4,3,2},
-        {2,1,4},{4,2,1},{1,4,2},
-        {2,5,1},{1,2,5},{5,1,2}
-    };
-
-    for (int i = 0; i < 21; i++) {
-        string s;
-        for (int j = 0; j < 3; j++) {
-            s.push_back(colors[combos[i][j]]);
-        }
-        tripletSet.t[i] = s;
+    Cube(string s) {
+        for (int i = 0; i < 24; ++i)
+            state[i] = s[i];
     }
-    return tripletSet;
-}
 
-// Get State from cube colors using triplet lookup
-State getState(const Cube& cube, const Triplets& tripletSet) {
-    State state;
-    string s;
+    string to_string() const {
+        return string(state.begin(), state.end());
+    }
 
-    // Each corner has a unique triplet of stickers
-    vector<tuple<int, int, int, int, int, int>> corners = {
-        {0,0, 3,1, 4,2}, {0,1, 4,3, 1,0}, {0,2, 5,0, 3,3},
-        {0,3, 1,2, 5,1}, {2,0, 4,0, 3,0}, {2,1, 1,1, 4,1}, {2,3, 5,3, 1,3}
-    };
+    // Checks if each face has the same color
+    bool is_solved() const {
+        for (int i = 0; i < 24; i += 4)
+            if (!(state[i] == state[i+1] && state[i] == state[i+2] && state[i] == state[i+3]))
+                return false;
+        return true;
+    }
 
-    for (int i = 0; i < 7; i++) {
-        s.clear();
-        s.push_back(cube.face[get<0>(corners[i])][get<1>(corners[i])]);
-        s.push_back(cube.face[get<2>(corners[i])][get<3>(corners[i])]);
-        s.push_back(cube.face[get<4>(corners[i])][get<5>(corners[i])]);
+    // Encodes the state as a unique 64-bit integer
+    uint64_t encode() const {
+        uint64_t code = 0;
+        for (char c : state)
+            code = (code << 3) | (c - 'A');
+        return code;
+    }
 
-        for (int j = 0; j < 21; j++) {
-            if (s == tripletSet.t[j]) {
-                state.val[i] = (i * 3) + (j % 3);
-                break;
+    // Applies a move and returns the resulting cube
+    Cube move(const string& mv) const {
+        static const unordered_map<string, vector<int>> turns = {
+            {"F",  {8, 9, 11, 10, 2, 6, 13, 17}},
+            {"F'", {8, 10, 11, 9, 2, 17, 13, 6}},
+            {"F2", {8, 11, 10, 9, 2, 13, 17, 6}},
+            {"B",  {20, 21, 23, 22, 0, 16, 15, 5}},
+            {"B'", {20, 22, 23, 21, 0, 5, 15, 16}},
+            {"B2", {20, 23, 22, 21, 0, 15, 5, 16}},
+            {"U",  {0, 1, 3, 2, 20, 8, 16, 4}},
+            {"U'", {0, 2, 3, 1, 20, 4, 16, 8}},
+            {"U2", {0, 3, 2, 1, 20, 16, 4, 8}},
+            {"D",  {12, 13, 15, 14, 10, 6, 18, 22}},
+            {"D'", {12, 14, 15, 13, 10, 22, 18, 6}},
+            {"D2", {12, 15, 14, 13, 10, 18, 22, 6}},
+            {"R",  {4, 5, 7, 6, 1, 9, 13, 21}},
+            {"R'", {4, 6, 7, 5, 1, 21, 13, 9}},
+            {"R2", {4, 7, 6, 5, 1, 13, 21, 9}},
+            {"L",  {16, 17, 19, 18, 0, 20, 12, 8}},
+            {"L'", {16, 18, 19, 17, 0, 8, 12, 20}},
+            {"L2", {16, 19, 18, 17, 0, 12, 8, 20}},
+        };
+
+        Cube next = *this;
+        const vector<int>& sw = turns.at(mv);
+        char tmp = next.state[sw[0]];
+        for (int i = 0; i < 7; ++i)
+            next.state[sw[i]] = next.state[sw[i + 1]];
+        next.state[sw[7]] = tmp;
+        return next;
+    }
+};
+
+// Bidirectional BFS to find the shortest solution
+string bidirectional_bfs(Cube start) {
+    if (start.is_solved())
+        return "";
+
+    unordered_map<uint64_t, string> visited_f, visited_b;
+    queue<pair<Cube, string>> q_f, q_b;
+
+    Cube goal("WWWWRRRRGGGGYYYYOOOOBBBB"); // Solved cube
+    visited_f[start.encode()] = "";
+    visited_b[goal.encode()] = "";
+
+    q_f.push({start, ""});
+    q_b.push({goal, ""});
+
+    while (!q_f.empty() && !q_b.empty()) {
+        if (q_f.size() > q_b.size()) {
+            swap(q_f, q_b);
+            swap(visited_f, visited_b);
+        }
+
+        int sz = q_f.size();
+        while (sz--) {
+            Cube cube = q_f.front().first;
+            string path = q_f.front().second;
+            q_f.pop();
+
+            for (const string& mv : MOVES) {
+                Cube next = cube.move(mv);
+                uint64_t code = next.encode();
+
+                if (visited_f.count(code)) continue;
+
+                string next_path = path.empty() ? mv : path + " " + mv;
+                visited_f[code] = next_path;
+
+                if (visited_b.count(code)) {
+                    string rev_path = visited_b[code];
+                    reverse(rev_path.begin(), rev_path.end());
+                    return next_path + " " + rev_path;
+                }
+
+                q_f.push({next, next_path});
             }
         }
     }
-    return state;
+
+    return "Unsolvable";
 }
 
-// Get opposite color
-char getOpposite(char color) {
-    if (color == 'r') return 'o';
-    if (color == 'o') return 'r';
-    if (color == 'w') return 'y';
-    if (color == 'y') return 'w';
-    if (color == 'b') return 'g';
-    if (color == 'g') return 'b';
-    return ' ';
+// Checks if each color appears exactly 4 times
+bool validate_color_counts(const string& s) {
+    map<char, int> freq;
+    for (char c : s)
+        freq[toupper(c)]++;
+    return freq['W'] == 4 && freq['R'] == 4 && freq['O'] == 4 &&
+           freq['Y'] == 4 && freq['G'] == 4 && freq['B'] == 4;
 }
 
-// Compute destination cube by applying opposite colors
-Cube getTargetCube(const Cube& cube) {
-    Cube target;
-    for (int i = 0; i < 4; i++) {
-        target.face[2][i] = cube.face[2][2];
-        target.face[3][i] = cube.face[3][2];
-        target.face[5][i] = cube.face[5][2];
-        target.face[0][i] = getOpposite(cube.face[2][2]);
-        target.face[1][i] = getOpposite(cube.face[3][2]);
-        target.face[4][i] = getOpposite(cube.face[5][2]);
-    }
-    return target;
-}
-
-// Read cube input and normalize red/orange
-void readCube(Cube& cube) {
-    for (int i = 0; i < 6; ++i)
-        for (int j = 0; j < 4; ++j) {
-            scanf(" %c", &cube.face[i][j]);
-            if (cube.face[i][j] == 'r') cube.face[i][j] = 'o';
-            else if (cube.face[i][j] == 'o') cube.face[i][j] = 'r';
-        }
-}
-
-// Display a cube's face configuration
-void printCube(const Cube& cube) {
-    for (int i = 0; i < 6; ++i) {
-        for (int j = 0; j < 4; ++j)
-            printf("%c ", cube.face[i][j]);
-        printf("\n");
-    }
-}
-
-// Display a state's encoded values
-void printState(const State& s) {
-    for (int i = 0; i < 7; ++i)
-        printf("%3d", s.val[i]);
-    printf("\n");
-}
-
-// Define all possible moves
-enum Move { R=1, U=2, F=3, R2=4, U2=5, F2=6, R1=7, U1=8, F1=9 };
-
-// Convert State to unique integer (base-21)
-int hashState(const State& s) {
-    int result = 0;
-    for (int i = 0; i < 7; ++i)
-        result = result * 21 + s.val[i];
-    return result;
-}
-
-// Encode a state to permutation and orientation
-Encoded encode(const State& s) {
-    Encoded enc;
-    int perm = 0, orient = 0;
-    int base[7];
-    for (int i = 0; i < 7; ++i) {
-        base[i] = s.val[i] / 3 + 1;
-        orient += (s.val[i] % 3) * pow(3, i);
-    }
-
-    int seen[8] = {};
-    int t = 6;
-    for (int i = 0; i < 7; ++i) {
-        int v = base[i], less = 0;
-        for (int j = 1; j < v; ++j) if (!seen[j]) less++;
-        perm += less * fact(t--);
-        seen[v] = 1;
-    }
-
-    enc.perm = perm;
-    enc.orient = orient;
-    return enc;
-}
-
-// Decode integer to State (inverse of hashState)
-State unhash(int h) {
-    State s;
-    for (int i = 6; i >= 0; --i) {
-        s.val[i] = h % 21;
-        h /= 21;
-    }
+string to_uppercase(string s) {
+    for (char& c : s)
+        c = toupper(c);
     return s;
 }
 
-// Rotate front/right/up
-State rotateFront(const State& s) {
-    int map[21] = {3,4,5,9,10,11,0,1,2,6,7,8,12,13,14,15,16,17,18,19,20};
-    State r;
-    for (int i = 0; i < 7; ++i) r.val[i] = map[s.val[i]];
-    return r;
-}
-State rotateRight(const State& s) {
-    int map[21] = {0,1,2,17,15,16,6,7,8,4,5,3,12,13,14,19,20,18,11,9,10};
-    State r;
-    for (int i = 0; i < 7; ++i) r.val[i] = map[s.val[i]];
-    return r;
-}
-State rotateUp(const State& s) {
-    int map[21] = {14,12,13,1,2,0,6,7,8,9,10,11,16,17,15,5,3,4,18,19,20};
-    State r;
-    for (int i = 0; i < 7; ++i) r.val[i] = map[s.val[i]];
-    return r;
-}
-
-// Max size for visited array
-#define MAX_PERM 5050
-#define MAX_ORIENT 2190
-
-// BFS to find shortest move sequence from start to target
-vector<int> bfs(const State& start, const State& target) {
-    vector<int> result;
-    int visited[MAX_PERM][MAX_ORIENT] = {};
-    int parent[MAX_PERM][MAX_ORIENT];
-
-    queue<int> q;
-    int startHash = hashState(start);
-    int targetHash = hashState(target);
-
-    Encoded startEnc = encode(start);
-    visited[startEnc.perm][startEnc.orient] = U;
-    q.push(startHash);
-
-    while (!q.empty()) {
-        int curHash = q.front(); q.pop();
-        if (curHash == targetHash) {
-            while (curHash != startHash) {
-                State cur = unhash(curHash);
-                Encoded e = encode(cur);
-                result.push_back(visited[e.perm][e.orient]);
-                curHash = parent[e.perm][e.orient];
-            }
-            reverse(result.begin(), result.end());
-            return result;
-        }
-
-        State now = unhash(curHash);
-        vector<pair<State, int>> nextMoves = {
-            {rotateFront(now), F}, {rotateFront(rotateFront(now)), F1}, {rotateFront(rotateFront(rotateFront(now))), F2},
-            {rotateRight(now), R}, {rotateRight(rotateRight(now)), R2}, {rotateRight(rotateRight(rotateRight(now))), R1},
-            {rotateUp(now), U}, {rotateUp(rotateUp(now)), U2}, {rotateUp(rotateUp(rotateUp(now))), U1}
-        };
-
-        for (auto& [next, move] : nextMoves) {
-            Encoded e = encode(next);
-            if (!visited[e.perm][e.orient]) {
-                visited[e.perm][e.orient] = move;
-                parent[e.perm][e.orient] = curHash;
-                q.push(hashState(next));
-            }
-        }
-    }
-
-    printf("Not possible\n");
-    return {};
-}
-
-// Print move list
-void printMoves(const vector<int>& moves) {
-    for (int m : moves) {
-        switch (m) {
-            case R:  printf("R ");  break;
-            case R1: printf("R' "); break;
-            case R2: printf("R2 "); break;
-            case U:  printf("U ");  break;
-            case U1: printf("U' "); break;
-            case U2: printf("U2 "); break;
-            case F:  printf("F ");  break;
-            case F1: printf("F' "); break;
-            case F2: printf("F2 "); break;
-        }
-    }
-    printf("\n");
-}
-
-// Main function
 int main() {
-    Cube input;
-    readCube(input);
+    cout << "Enter 24 characters for cube in the order:\n";
+    cout << "Top(4), Right(4), Left(4), Bottom(4), Front(4), Back(4):\n";
 
-    Cube target = getTargetCube(input);
+    string input;
+    cin >> input;
 
-    Triplets triplets = buildTriplets(target);
+    input = to_uppercase(input);
 
-    State start = getState(input, triplets);
-    State goal = getState(target, triplets);
+    if (input.length() != 24) {
+        cout << "Invalid input length. Must be exactly 24 characters.\n";
+        return 1;
+    }
 
-    printf("\nInitial Cube:\n\n");
-    printCube(input);
-    printf("\nTarget Cube:\n\n");
-    printCube(target);
-    printf("\nMoves:\n");
+    if (!validate_color_counts(input)) {
+        cout << "Invalid color count. Each of W, R, O, Y, G, B must appear exactly 4 times.\n";
+        return 1;
+    }
 
-    vector<int> moves = bfs(start, goal);
-    printMoves(moves);
+    // Rearranged to internal face order: U, R, F, D, L, B
+    string rearranged = input.substr(0, 4)   // U (Top)
+                      + input.substr(4, 4)   // R (Right)
+                      + input.substr(16, 4)  // F (Front)
+                      + input.substr(12, 4)  // D (Bottom)
+                      + input.substr(8, 4)   // L (Left)
+                      + input.substr(20, 4); // B (Back)
 
+    Cube scrambled(rearranged);
+    string solution = bidirectional_bfs(scrambled);
+
+    cout << "Solution: " << solution << "\n";
     return 0;
 }
